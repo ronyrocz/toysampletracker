@@ -75,7 +75,7 @@ public class OrderService {
         }
 
         return samples.stream()
-                .map(sample -> new SampleResponse(sample.getSampleUuid(), sample.getSequence()))
+                .map(sample -> new SampleResponse(sample.getSampleUuid(), sample.getSequence(), sample.getCreatedAt()))
                 .collect(Collectors.toList());
     }
 

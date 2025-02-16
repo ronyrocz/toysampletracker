@@ -1,6 +1,8 @@
 package com.elegen.toysampletracker.models;
 
 import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -28,6 +30,9 @@ public class Sample {
     @OneToOne(mappedBy = "sample", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private SampleQC sampleQC;
 
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
     public Sample() {
     }
 
@@ -36,6 +41,7 @@ public class Sample {
         this.sequence = sequence;
         this.status = status;
         this.order = order;
+        this.createdAt = LocalDateTime.now();
     }
 
     public void setSampleUuid(UUID sampleUuid) {
@@ -68,5 +74,13 @@ public class Sample {
 
     public void setOrder(Order order) {
         this.order = order;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }

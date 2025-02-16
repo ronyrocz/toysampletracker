@@ -7,7 +7,7 @@ BLUE="toysampletracker_blue"
 GREEN="toysampletracker_green"
 NGINX_CONTAINER="nginx-proxy"
 
-# Determine the active service
+# Determine the active and inactive instances
 if docker ps | grep -q "$BLUE"; then
     ACTIVE=$BLUE
     INACTIVE=$GREEN
@@ -16,7 +16,7 @@ else
     INACTIVE=$BLUE
 fi
 
-echo "✅ Active version: $ACTIVE"
+echo "✅ Active instance: $ACTIVE"
 echo "🔄 Deploying new version to: $INACTIVE"
 
 # Ensure Maven builds the correct JAR file
@@ -26,10 +26,11 @@ JAR_FILE=$(ls target/*.jar | head -n 1)  # Dynamically find the generated JAR
 # Build and tag the new image
 docker build --build-arg JAR_FILE=$JAR_FILE -t toysampletracker:latest .
 
-# Deploy the new version to the inactive container
-docker compose up -d --no-deps $INACTIVE
+# Start the new version (inactive instance)
+echo "🚀 Starting new version ($INACTIVE)..."
+docker compose up -d --no-deps --force-recreate $INACTIVE
 
-# Wait for the new container to become healthy
+# Wait for the new instance to become healthy
 echo "⏳ Waiting for $INACTIVE to become healthy..."
 TIMEOUT=60  # Max wait time (seconds)
 TIMER=0
@@ -46,21 +47,31 @@ done
 
 echo "✅ $INACTIVE is healthy!"
 
-# Switch traffic to the new version in NGINX
+# Update Nginx configuration to switch traffic to the new instance
 echo "🔀 Switching traffic to $INACTIVE..."
-sed -i.bak "s/$ACTIVE:8080;/$ACTIVE:8080 down;/" nginx.conf
-sed -i.bak "s/$INACTIVE:8081 down;/$INACTIVE:8081;/" nginx.conf
+sed -i.bak "s/server $ACTIVE:8080;/server $ACTIVE:8080 down;/" nginx.conf
+sed -i.bak "s/server $INACTIVE:8080 down;/server $INACTIVE:8080;/" nginx.conf
+
+# Copy the updated nginx.conf into the Nginx container
+docker cp nginx.conf $NGINX_CONTAINER:/etc/nginx/nginx.conf
 
 # Reload NGINX without downtime
-docker exec -it $NGINX_CONTAINER nginx -s reload || echo "⚠ Warning: Nginx reload failed, check logs."
+docker exec $NGINX_CONTAINER nginx -s reload || echo "⚠ Warning: Nginx reload failed, check logs."
 
-echo "✅ Deployment successful! Now serving traffic on: $INACTIVE"
+echo "✅ Traffic switched to $INACTIVE"
 
-# Wait for a few seconds to confirm stability
-sleep 10
+# Stop the old instance
+echo "🛑 Stopping old instance ($ACTIVE)..."
+docker stop $ACTIVE || echo "⚠ Warning: $ACTIVE was already stopped."
 
-# Remove the old version
-echo "🗑 Removing old version ($ACTIVE)..."
-docker stop $ACTIVE && docker rm $ACTIVE
+# Remove the old instance
+echo "🗑 Removing old instance ($ACTIVE)..."
+docker rm $ACTIVE || echo "⚠ Warning: $ACTIVE was already removed."
 
+# Restart the new instance to ensure it runs on the correct port
+echo "🔄 Restarting $INACTIVE..."
+docker compose up -d --force-recreate $INACTIVE
+
+# Wait for final confirmation
+sleep 5
 echo "🚀 Zero-downtime deployment completed successfully!"

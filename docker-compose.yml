@@ -9,10 +9,8 @@ services:
     ports:
       - "80:80"
     depends_on:
-      toysampletracker_blue:
-        condition: service_healthy
-      toysampletracker_green:
-        condition: service_healthy
+      - toysampletracker_blue
+      - toysampletracker_green
     networks:
       - app_network
 
@@ -24,7 +22,7 @@ services:
       args:
         JAR_FILE: target/toysampletracker-*.jar
     ports:
-      - "8080:8080"
+      - "8081:8080"  # Map to a different host port
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/toysampletracker
@@ -35,7 +33,7 @@ services:
     networks:
       - app_network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8080/actuator/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health" ]
       interval: 5s
       retries: 3
       start_period: 10s
@@ -49,7 +47,7 @@ services:
       args:
         JAR_FILE: target/toysampletracker-*.jar
     ports:
-      - "8081:8080"
+      - "8082:8080"  # Map to a different host port
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/toysampletracker
@@ -60,7 +58,7 @@ services:
     networks:
       - app_network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8080/actuator/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health" ]
       interval: 5s
       retries: 3
       start_period: 10s
@@ -80,7 +78,6 @@ services:
       - app_network
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
 
 networks:
   app_network:
