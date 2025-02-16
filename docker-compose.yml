@@ -9,15 +9,16 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - toysampletracker_blue
-      - toysampletracker_green
+      toysampletracker_blue:
+        condition: service_healthy
+      toysampletracker_green:
+        condition: service_healthy
     networks:
       - app_network
 
   toysampletracker_blue:
     image: toysampletracker:latest
     container_name: toysampletracker_blue
-
     build:
       context: .
       args:
@@ -33,6 +34,12 @@ services:
       - postgres
     networks:
       - app_network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8080/actuator/health" ]
+      interval: 5s
+      retries: 3
+      start_period: 10s
+      timeout: 3s
 
   toysampletracker_green:
     image: toysampletracker:latest
@@ -52,6 +59,12 @@ services:
       - postgres
     networks:
       - app_network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8080/actuator/health" ]
+      interval: 5s
+      retries: 3
+      start_period: 10s
+      timeout: 3s
 
   postgres:
     image: postgres:15
@@ -67,6 +80,7 @@ services:
       - app_network
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
 
 networks:
   app_network:

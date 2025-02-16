@@ -17,3 +17,8 @@ spring:
     url: jdbc:postgresql://postgres-db:5432/toysampletracker
     user: postgres
     password: postgres
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"

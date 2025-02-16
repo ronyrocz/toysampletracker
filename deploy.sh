@@ -1,16 +1,13 @@
 #!/bin/bash
 
+set -e  # Exit immediately if a command fails
+
 # Set service names
 BLUE="toysampletracker_blue"
 GREEN="toysampletracker_green"
+NGINX_CONTAINER="nginx-proxy"
 
-# Get the Spring Boot app version from `pom.xml`
-VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-IMAGE_NAME="toysampletracker:$VERSION"
-
-echo "Deploying version: $VERSION"
-
-# Check which version is currently running
+# Determine the active service
 if docker ps | grep -q "$BLUE"; then
     ACTIVE=$BLUE
     INACTIVE=$GREEN
@@ -19,45 +16,51 @@ else
     INACTIVE=$BLUE
 fi
 
-echo "Active version: $ACTIVE"
-echo "Deploying new version ($VERSION) to: $INACTIVE"
+echo "✅ Active version: $ACTIVE"
+echo "🔄 Deploying new version to: $INACTIVE"
 
 # Ensure Maven builds the correct JAR file
 mvn clean package
 JAR_FILE=$(ls target/*.jar | head -n 1)  # Dynamically find the generated JAR
 
-# Build and tag the new version
-docker build --build-arg JAR_FILE=$JAR_FILE -t $IMAGE_NAME .
-docker tag $IMAGE_NAME toysampletracker:latest
+# Build and tag the new image
+docker build --build-arg JAR_FILE=$JAR_FILE -t toysampletracker:latest .
 
-# Deploy the new version
+# Deploy the new version to the inactive container
 docker compose up -d --no-deps $INACTIVE
 
-# Wait for the new version to be ready
-echo "Waiting for new version to be ready..."
-sleep 10  # Adjust if needed
+# Wait for the new container to become healthy
+echo "⏳ Waiting for $INACTIVE to become healthy..."
+TIMEOUT=60  # Max wait time (seconds)
+TIMER=0
 
-# Switch Nginx to route traffic to the new version
-echo "Switching traffic to $INACTIVE..."
-sed -i '' "s/$ACTIVE:8080;/$ACTIVE:8080 down;/" nginx.conf
-sed -i '' "s/$INACTIVE:8081 down;/$INACTIVE:8081;/" nginx.conf
+until [ "$(docker inspect -f '{{.State.Health.Status}}' $INACTIVE 2>/dev/null)" == "healthy" ]; do
+  sleep 2
+  echo -n "."
+  TIMER=$((TIMER+2))
+  if [ $TIMER -ge $TIMEOUT ]; then
+    echo "❌ Timeout waiting for $INACTIVE to be healthy. Exiting..."
+    exit 1
+  fi
+done
 
-# Reload Nginx BEFORE deleting the old version
-docker exec -it nginx-proxy nginx -s reload
+echo "✅ $INACTIVE is healthy!"
 
-echo "Deployment successful! Now serving traffic on: $INACTIVE"
+# Switch traffic to the new version in NGINX
+echo "🔀 Switching traffic to $INACTIVE..."
+sed -i.bak "s/$ACTIVE:8080;/$ACTIVE:8080 down;/" nginx.conf
+sed -i.bak "s/$INACTIVE:8081 down;/$INACTIVE:8081;/" nginx.conf
 
-# Wait a few seconds to ensure Nginx has switched
-sleep 5
+# Reload NGINX without downtime
+docker exec -it $NGINX_CONTAINER nginx -s reload || echo "⚠ Warning: Nginx reload failed, check logs."
 
-# Remove old version (after confirming traffic has switched)
-echo "Removing old version ($ACTIVE)..."
+echo "✅ Deployment successful! Now serving traffic on: $INACTIVE"
+
+# Wait for a few seconds to confirm stability
+sleep 10
+
+# Remove the old version
+echo "🗑 Removing old version ($ACTIVE)..."
 docker stop $ACTIVE && docker rm $ACTIVE
 
-
-# Keep track of deployed versions (Append instead of overwriting)
-echo "\n$VERSION" >> deployed_version_history.txt
-
-# Store the last stable version separately (if deployment is successful)
-echo "$VERSION" > deployed_version.txt
-
+echo "🚀 Zero-downtime deployment completed successfully!"
