@@ -9,11 +9,11 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
   h2:
     console:
       enabled: true
-      path: /h2-console # http://localhost:8081/h2-console
+      path: /h2-console # http://localhost:8082/h2-console
   flyway:
     baseline-on-migrate: true
     baseline-version: 1

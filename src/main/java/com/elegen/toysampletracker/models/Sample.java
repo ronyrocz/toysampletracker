@@ -1,6 +1,8 @@
 package com.elegen.toysampletracker.models;
 
 import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -25,17 +27,24 @@ public class Sample {
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
+    @Column(name="processed_at")
+    private LocalDateTime processedAt;
+
+    @Column(name = "approval_status")
+    private String approvalStatus;
+
     @OneToOne(mappedBy = "sample", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private SampleQC sampleQC;
 
     public Sample() {
     }
 
-    public Sample(UUID sampleUuid, String sequence, SampleStatus status, Order order) {
+    public Sample(UUID sampleUuid, String sequence, SampleStatus status, Order order, LocalDateTime processedAt, String approvalStatus) {
         this.sampleUuid = sampleUuid;
         this.sequence = sequence;
         this.status = status;
         this.order = order;
+        this.approvalStatus = approvalStatus;
     }
 
     public void setSampleUuid(UUID sampleUuid) {
@@ -68,5 +77,21 @@ public class Sample {
 
     public void setOrder(Order order) {
         this.order = order;
+    }
+
+    public LocalDateTime getProcessedAt() {
+        return processedAt;
+    }
+
+    public void setProcessedAt(LocalDateTime processedAt) {
+        this.processedAt = processedAt;
+    }
+
+    public String getApprovalStatus() {
+        return approvalStatus;
+    }
+
+    public void setApprovalStatus(String approvalStatus) {
+        this.approvalStatus = approvalStatus;
     }
 }

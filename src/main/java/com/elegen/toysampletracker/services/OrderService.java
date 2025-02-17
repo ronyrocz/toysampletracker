@@ -1,5 +1,6 @@
 package com.elegen.toysampletracker.services;
 
+import com.elegen.toysampletracker.common.DuplicateEntryException;
 import com.elegen.toysampletracker.models.Order;
 import com.elegen.toysampletracker.models.Sample;
 import com.elegen.toysampletracker.models.SampleStatus;
@@ -12,6 +13,8 @@ import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -29,6 +32,8 @@ public class OrderService {
     @Autowired
     private SampleRepository sampleRepository;
 
+    @Value("${feature-flags.enable-sample-approval:false}")
+    private boolean enableSampleApproval;
 
     /**
      * Creates a new order with the given samples.
@@ -40,22 +45,27 @@ public class OrderService {
     public UUID createOrder(OrderRequest orderRequest) {
         logger.info("Creating a new order with {} samples", orderRequest.getOrder().size());
 
-        Order order = new Order();
-        List<Sample> samples = orderRequest.getOrder().stream().map(sampleDto -> {
-            Sample sample = new Sample();
-            sample.setSampleUuid(sampleDto.getSampleUuidAsUUID());
-            sample.setStatus(SampleStatus.ORDERED);
-            sample.setSequence(sampleDto.getSequence());
-            sample.setOrder(order);
+        try {
+            Order order = new Order();
+            List<Sample> samples = orderRequest.getOrder().stream().map(sampleDto -> {
+                Sample sample = new Sample();
+                sample.setSampleUuid(sampleDto.getSampleUuidAsUUID());
+                sample.setStatus(SampleStatus.ORDERED);
+                sample.setSequence(sampleDto.getSequence());
+                sample.setOrder(order);
+                return sample;
+            }).collect(Collectors.toList());
 
-            return sample;
-        }).collect(Collectors.toList());
-
-        order.setSamples(samples);
-        orderRepository.save(order);
-        logger.info("Order created successfully with UUID: {}", order.getOrderUuid());
-        return order.getOrderUuid();
+            order.setSamples(samples);
+            orderRepository.save(order);
+            logger.info("Order created successfully with UUID: {}", order.getOrderUuid());
+            return order.getOrderUuid();
+        } catch (DataIntegrityViolationException e) {
+            logger.warn("Duplicate sample UUID detected. Order creation failed.");
+            throw new DuplicateEntryException("A sample with the same UUID already exists.");
+        }
     }
+
 
     /**
      * Retrieves all samples associated with a given order.
@@ -75,7 +85,7 @@ public class OrderService {
         }
 
         return samples.stream()
-                .map(sample -> new SampleResponse(sample.getSampleUuid(), sample.getSequence()))
+                .map(sample -> new SampleResponse(sample.getSampleUuid(), sample.getSequence(), sample.getProcessedAt(), enableSampleApproval ? sample.getApprovalStatus() : null))
                 .collect(Collectors.toList());
     }
 

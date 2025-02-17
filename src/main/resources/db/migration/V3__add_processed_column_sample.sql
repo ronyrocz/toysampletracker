@@ -1,0 +1,2 @@
+ALTER TABLE samples ADD COLUMN processed_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE samples ADD COLUMN approval_status VARCHAR(20);

@@ -8,6 +8,7 @@ import com.elegen.toysampletracker.repositories.SampleRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -18,6 +19,9 @@ import java.util.Optional;
 public class SampleQCService {
 
     private static final Logger logger = LoggerFactory.getLogger(SampleQCService.class);
+
+    @Value("${feature-flags.enable-sample-approval:false}")
+    private boolean enableSampleApproval;
 
     @Autowired
     private SampleRepository sampleRepository;
@@ -53,6 +57,10 @@ public class SampleQCService {
                 sampleQCRepository.save(sampleQC);
 
                 sample.setStatus(entry.getQc3());
+                if(enableSampleApproval){
+                    sample.setApprovalStatus("APPROVED");
+                }
+
                 sampleRepository.save(sample);
                 logger.info("QC results logged for sample UUID: {}", entry.getSampleUuid());
             } else {

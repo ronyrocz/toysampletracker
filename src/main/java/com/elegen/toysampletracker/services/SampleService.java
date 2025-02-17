@@ -7,6 +7,7 @@ import com.elegen.toysampletracker.repositories.SampleRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -17,6 +18,9 @@ import java.util.stream.Collectors;
 public class SampleService {
 
     private static final Logger logger = LoggerFactory.getLogger(SampleService.class);
+
+    @Value("${feature-flags.enable-sample-approval:false}")
+    private boolean enableSampleApproval;
 
     @Autowired
     private SampleRepository sampleRepository;
@@ -38,7 +42,7 @@ public class SampleService {
         }
 
         return samples.stream()
-                .map(sample -> new SampleResponse(sample.getSampleUuid(), sample.getSequence()))
+                .map(sample -> new SampleResponse(sample.getSampleUuid(), sample.getSequence(), sample.getProcessedAt(), enableSampleApproval ? sample.getApprovalStatus() : null))
                 .collect(Collectors.toList());
     }
 
