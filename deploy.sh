@@ -2,65 +2,48 @@
 
 set -e  # Exit immediately if a command fails
 
-# Set service names
-BLUE="toysampletracker_blue"
-GREEN="toysampletracker_green"
+# Define service names
+APP_CONTAINER="toysampletracker"
 NGINX_CONTAINER="nginx-proxy"
 
-# Determine the active service
-if docker ps | grep -q "$BLUE"; then
-    ACTIVE=$BLUE
-    INACTIVE=$GREEN
-else
-    ACTIVE=$GREEN
-    INACTIVE=$BLUE
-fi
+# Get the latest version from `pom.xml`
+VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+IMAGE_NAME="toysampletracker:$VERSION"
 
-echo "✅ Active version: $ACTIVE"
-echo "🔄 Deploying new version to: $INACTIVE"
+echo "Deploying version: $VERSION"
 
 # Ensure Maven builds the correct JAR file
+echo "Building new application..."
 mvn clean package
-JAR_FILE=$(ls target/*.jar | head -n 1)  # Dynamically find the generated JAR
+JAR_FILE=$(ls target/*.jar | head -n 1)
 
-# Build and tag the new image
-docker build --build-arg JAR_FILE=$JAR_FILE -t toysampletracker:latest .
+# Build and tag the new Docker image
+echo "Building Docker image..."
+docker build --build-arg JAR_FILE=$JAR_FILE -t $IMAGE_NAME .
 
-# Deploy the new version to the inactive container
-docker compose up -d --no-deps $INACTIVE
+# Start the new version while the old one is still running
+echo "Starting new version in Docker..."
+docker compose up -d --build
 
-# Wait for the new container to become healthy
-echo "⏳ Waiting for $INACTIVE to become healthy..."
+# Wait for the new app to become healthy before stopping the old one
+echo "⏳ Waiting for the new app to be healthy..."
 TIMEOUT=60  # Max wait time (seconds)
 TIMER=0
 
-until [ "$(docker inspect -f '{{.State.Health.Status}}' $INACTIVE 2>/dev/null)" == "healthy" ]; do
+until curl -s http://localhost/actuator/health | grep -q '"status":"UP"'; do
   sleep 2
   echo -n "."
   TIMER=$((TIMER+2))
   if [ $TIMER -ge $TIMEOUT ]; then
-    echo "❌ Timeout waiting for $INACTIVE to be healthy. Exiting..."
+    echo "Timeout waiting for new app to be healthy. Exiting..."
     exit 1
   fi
 done
 
-echo "✅ $INACTIVE is healthy!"
+echo -e "\nNew app is healthy!"
 
-# Switch traffic to the new version in NGINX
-echo "🔀 Switching traffic to $INACTIVE..."
-sed -i.bak "s/$ACTIVE:8080;/$ACTIVE:8080 down;/" nginx.conf
-sed -i.bak "s/$INACTIVE:8081 down;/$INACTIVE:8081;/" nginx.conf
+# Reload Nginx to recognize the updated container
+echo "Reloading Nginx..."
+docker exec $NGINX_CONTAINER nginx -s reload || echo "⚠ Warning: Nginx reload failed, check logs."
 
-# Reload NGINX without downtime
-docker exec -it $NGINX_CONTAINER nginx -s reload || echo "⚠ Warning: Nginx reload failed, check logs."
-
-echo "✅ Deployment successful! Now serving traffic on: $INACTIVE"
-
-# Wait for a few seconds to confirm stability
-sleep 10
-
-# Remove the old version
-echo "🗑 Removing old version ($ACTIVE)..."
-docker stop $ACTIVE && docker rm $ACTIVE
-
-echo "🚀 Zero-downtime deployment completed successfully!"
+echo "Deployment successful!"

@@ -5,20 +5,17 @@ services:
     image: nginx:latest
     container_name: nginx-proxy
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro  # Mount nginx.conf as read-only
     ports:
       - "80:80"
     depends_on:
-      toysampletracker_blue:
-        condition: service_healthy
-      toysampletracker_green:
-        condition: service_healthy
+      - toysampletracker
     networks:
       - app_network
 
-  toysampletracker_blue:
+  toysampletracker:
     image: toysampletracker:latest
-    container_name: toysampletracker_blue
+    container_name: toysampletracker
     build:
       context: .
       args:
@@ -30,41 +27,16 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/toysampletracker
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health" ]
+      interval: 5s
+      retries: 3
+      start_period: 20s
+      timeout: 3s
     depends_on:
       - postgres
     networks:
       - app_network
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8080/actuator/health" ]
-      interval: 5s
-      retries: 3
-      start_period: 10s
-      timeout: 3s
-
-  toysampletracker_green:
-    image: toysampletracker:latest
-    container_name: toysampletracker_green
-    build:
-      context: .
-      args:
-        JAR_FILE: target/toysampletracker-*.jar
-    ports:
-      - "8081:8080"
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/toysampletracker
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
-    depends_on:
-      - postgres
-    networks:
-      - app_network
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://127.0.0.1:8080/actuator/health" ]
-      interval: 5s
-      retries: 3
-      start_period: 10s
-      timeout: 3s
 
   postgres:
     image: postgres:15
@@ -80,7 +52,6 @@ services:
       - app_network
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
 
 networks:
   app_network:

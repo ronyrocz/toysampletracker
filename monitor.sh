@@ -1,8 +1,7 @@
 #!/bin/bash
 
-set -e  # Exit on error
+set -euo pipefail  # Better error handling
 
-# API endpoint to monitor
 API_URL="http://localhost/actuator/health"
 LOG_FILE="api_monitor.log"
 
@@ -10,15 +9,13 @@ echo "📡 Monitoring API ($API_URL)... Press Ctrl+C to stop."
 
 # Loop indefinitely to monitor API response
 while true; do
-  RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" $API_URL)
+  RESPONSE=$(curl -s --retry 5 --retry-delay 2 --connect-timeout 5 -o /dev/null -w "%{http_code}" "$API_URL" || echo "000")
 
-  # Log API response with timestamp
-  echo "$(date) - API Status: $RESPONSE" | tee -a $LOG_FILE
+  echo "$(date) - API Status: $RESPONSE" | tee -a "$LOG_FILE"
 
-  # Check for downtime (non-200 response)
   if [ "$RESPONSE" -ne 200 ]; then
     echo "🚨 API DOWN! Status: $RESPONSE"
   fi
 
-  sleep 1  # Wait 1 second before the next request
+  sleep 1
 done

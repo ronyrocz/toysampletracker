@@ -1,5 +1,18 @@
 # Changelog
 
+## [4.0.0] - 2025-16-02
+Author : @RohanMhatre
+### Added
+- Added simple incremental deployments
+- Added flyway support for h2
+
+### Changed
+- Moved away from blue-green deployment to simple incremental deployment with minimal downtime.
+
+### Fixed
+- Fixed breaking deployment script caused by nginx.conf file not uploaded to container causing it to break.
+
+
 ## [3.0.0] - 2025-14-02 
 Author : @RohanMhatre
 ### Added
