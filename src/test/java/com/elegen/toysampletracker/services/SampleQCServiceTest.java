@@ -1,5 +1,6 @@
 package com.elegen.toysampletracker.services;
 
+import com.elegen.toysampletracker.commons.ResourceNotFoundException;
 import com.elegen.toysampletracker.models.Sample;
 import com.elegen.toysampletracker.models.SampleQC;
 import com.elegen.toysampletracker.models.SampleStatus;
@@ -97,7 +98,7 @@ class SampleQCServiceTest {
     }
 
     @Test
-    void testLogQCResults_IgnoresMissingSamples() {
+    void testLogQCResults_ThrowsExceptionForMissingSamples() {
         // Mock request with a non-existent sample
         UUID sampleUuid1 = UUID.randomUUID();
 
@@ -115,11 +116,17 @@ class SampleQCServiceTest {
         // Simulate missing sample in DB
         when(sampleRepository.findBySampleUuid(sampleUuid1)).thenReturn(Optional.empty());
 
-        // Execute service
-        sampleQCService.logQCResults(qcRequest);
+        // Expect the method to throw ResourceNotFoundException
+        ResourceNotFoundException exception = assertThrows(ResourceNotFoundException.class, () -> {
+            sampleQCService.logQCResults(qcRequest);
+        });
 
-        // Verify that QC data was **never saved** since the sample didn't exist
+        // Verify exception message
+        assertTrue(exception.getMessage().contains(sampleUuid1.toString()));
+
+        // Ensure that QC data was **never saved**
         verify(sampleQCRepository, never()).save(any(SampleQC.class));
         verify(sampleRepository, never()).save(any(Sample.class));
     }
+
 }

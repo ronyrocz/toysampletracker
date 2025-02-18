@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS orders (
 -- Create the 'samples' table
 CREATE TABLE IF NOT EXISTS samples (
     id BIGINT PRIMARY KEY,
-    sample_uuid UUID NOT NULL,
+    sample_uuid UUID NOT NULL UNIQUE,
     sequence VARCHAR(255) NOT NULL,
     status VARCHAR(255) NOT NULL,
     order_id BIGINT NOT NULL,

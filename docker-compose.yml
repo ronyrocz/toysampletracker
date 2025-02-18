@@ -27,6 +27,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/toysampletracker
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
+      - FEATURE_ENABLE_SAMPLE_APPROVAL=true
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health" ]
       interval: 5s

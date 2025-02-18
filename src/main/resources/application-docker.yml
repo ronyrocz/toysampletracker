@@ -24,3 +24,6 @@ management:
     web:
       exposure:
         include: "*"
+
+feature-flags:
+  enable-sample-approval: ${FEATURE_ENABLE_SAMPLE_APPROVAL:false}

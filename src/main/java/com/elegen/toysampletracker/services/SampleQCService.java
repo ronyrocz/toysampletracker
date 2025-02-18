@@ -1,5 +1,6 @@
 package com.elegen.toysampletracker.services;
 
+import com.elegen.toysampletracker.commons.ResourceNotFoundException;
 import com.elegen.toysampletracker.models.Sample;
 import com.elegen.toysampletracker.models.SampleQC;
 import com.elegen.toysampletracker.models.dtos.SampleQCRequest;
@@ -10,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 /**
  * Service class for handling Quality Control (QC) logging for samples.
@@ -35,6 +38,7 @@ public class SampleQCService {
             throw new IllegalArgumentException("samples_made list cannot be null or empty");
         }
         logger.info("Processing QC results for {} samples.", qcRequest.getSamplesMade().size());
+        List<String> missingSamples = new ArrayList<>();
 
         for (SampleQCRequest.SampleQCEntry entry : qcRequest.getSamplesMade()) {
             Optional<Sample> sampleOpt = sampleRepository.findBySampleUuid(entry.getSampleUuid());
@@ -57,7 +61,13 @@ public class SampleQCService {
                 logger.info("QC results logged for sample UUID: {}", entry.getSampleUuid());
             } else {
                 logger.warn("Sample with UUID {} not found. QC results were not logged.", entry.getSampleUuid());
+                missingSamples.add(entry.getSampleUuid().toString());
             }
+        }
+
+        // If any samples were missing, throw an exception
+        if (!missingSamples.isEmpty()) {
+            throw new ResourceNotFoundException("Some samples were not found: " + String.join(", ", missingSamples));
         }
     }
 }
